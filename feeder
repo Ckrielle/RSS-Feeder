@@ -1,0 +1,42 @@
+#!/bin/sh
+news_dir=$([ -d "${XDG_CONFIG_HOME:-$HOME/.config}/newsboat" ] && echo "${XDG_CONFIG_HOME:-$HOME/.config}/newsboat" || echo "$HOME/.newsboat")
+
+function addGithub(){
+	read -rp "First, enter the name of the user/organization and the name of the project you want to follow: " user project
+	case "$(read -p "Do you want to follow the releases, the tags, or the commits? (r/t/c) " answer && echo "$answer")" in	
+		r) awk -v var1="$user" -v var2="$project" 'BEGIN {print "https://github.com/"var1"/"var2"/releases.atom"}' >> "$news_dir"/urls ;;
+		t) awk -v var1="$user" -v var2="$project" 'BEGIN {print "https://github.com/"var1"/"var2"/tags.atom"}' >> "$news_dir"/urls ;;
+		c) awk -v var1="$user" -v var2="$project" 'BEGIN {print "https://github.com/"var1"/"var2"/commits/master.atom"}' >> "$news_dir"/urls ;;
+		*) printf "Enter a proper option." ;;
+	esac
+}
+
+#The Youtube function requires usage of the Youtube API, so a key is required. 
+function addYoutube(){
+	channel=$(read -p "Add the name of the channel you want to follow: " name && echo "$name" | sed -e 's/\s\+/%5F/g')
+	curl \
+	"https://www.googleapis.com/youtube/v3/search?part=snippet&q="$channel"&type=channel&fields=items%2Fsnippet%2FchannelId&key=YOUR KEY HERE" \ #Include YT API key here
+	--header 'Accept: application/json' \
+	--compressed | grep -m 1 channelId | sed -r 's/^.{22}//;s/.$//' | awk '{print "https://www.youtube.com/feeds/videos.xml?channel_id="$1}' >> "$news_dir"/urls
+}
+
+function addReddit(){
+	case "$(read -p "Do you want to follow a subreddit, a redditor, or a post? (s/r/p) " answer && echo "$answer")" in
+		s) read -p 'Enter the name of the subreddit you want to follow: ' name && awk -v var="$name" 'BEGIN {print "https://reddit.com/r/"var".rss"}' >> "$news_dir"/urls ;;
+		r) read -p 'Enter the name of the redditor you want to follow: ' name && awk -v var="$name" 'BEGIN {print "https://reddit.com/user/"var".rss"}' >> "$news_dir"/urls ;;
+		p) printf "I'll add it later o_o." ;;
+		*) printf "Enter a proper option." ;;
+	esac
+}
+
+function addTwitter(){ 
+	read -p 'Enter the name of the account you want to follow: ' name && awk -v var="$name" 'BEGIN {print "https://nitter.net/"var"/rss"}' >> "$news_dir"/urls 
+}
+
+case "$1" in
+	g) addGithub  ;;
+	y) addYoutube ;;
+	r) addReddit  ;;
+	t) addTwitter ;;
+	*) printf "RSS Feeder made by Machina\\nUsage:\\n rf g:\\tAdd Github Feed\\n rf y:\\tAdd Youtube Channel Feed\\n rf r:\\tAdd Reddit Feed\\n rf t:\\tAdd Twitter Feed\\nSee https://github.com/Ckrielle/RSS-Feeder for more.\\n" ;;
+esac
